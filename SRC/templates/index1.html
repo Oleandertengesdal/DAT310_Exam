@@ -1,0 +1,471 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="content-container">
+
+    <!-- For You / Following Tabs -->
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link active" id="for-you-tab" href="#">For You</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="following-tab" href="#">Following</a>
+        </li>
+    </ul>
+
+    <!-- Write Post Tweet Section -->
+    <div class="post-section mt-3">
+        <div class="row">     
+            <div class="col-md-3">
+
+            </div>
+            <form id="tweet-form">
+                <div class="col-mb-3 tweet-write-area">
+                    <textarea id="tweet-content" class="form-control" placeholder="What's on your mind?" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Post</button>
+            </form>
+        </div>    
+    </div>
+
+    <!-- Tweets Section -->
+    <div class="tweets-section mt-3">
+        <!-- Tweets will be inserted here -->
+    </div>
+    
+    <!-- No more tweets message -->
+    <div class="no-more-tweets mt-3 text-center" style="display: none;">
+        You are all up to date!
+    </div>
+</div>
+<script>
+    var userId = "{{ user_id }}";
+    var username = "{{ username }}";
+    var isFetchingTweets = false; // Flag to prevent multiple fetches
+    var isFetchingFollowedTweets = false; // Flag to prevent multiple fetches
+
+    var noMoreFollowedTweets = false; // Flag to indicate no more tweets
+    var noMoreTweets = false; // Flag to indicate no more tweets
+
+    document.getElementById('tweet-form').addEventListener('submit', function(event) {   
+        event.preventDefault(); // Prevent form submission
+
+        // Get tweet content from textarea
+        var tweetContent = document.getElementById('tweet-content').value;
+
+        // Send POST request to Flask server
+        fetch('/add_tweet', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: tweetContent,
+                user_id: userId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to create tweet');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Tweet created successfully:', data);
+            // Create and append the new tweet element
+            const newTweet = createTweetElement({
+                tweet_id: data.tweet_id,
+                username: username, // Replace with actual username if available
+                timestamp: new Date().toISOString(), 
+                content: tweetContent
+            });
+            document.querySelector('.tweets-section').prepend(newTweet);
+            document.getElementById('tweet-content').value = ''; 
+        })
+        .catch(error => {
+            console.error('Error creating tweet:', error);
+            alert('Error creating tweet: ' + error.message);
+        });
+    });
+
+    function isAtBottom() {
+        return (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 1);
+    }
+
+    function fetchInitialTweets() {
+        fetch('/initial_tweets')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch initial tweets');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.length === 0) {
+                    noMoreTweets = true;
+                    document.querySelector('.no-more-tweets').style.display = 'block';
+                } else {
+                    document.querySelector('.no-more-tweets').style.display = 'none';
+                    data.forEach(tweet => {
+                        const tweetElement = createTweetElement(tweet);
+                        document.querySelector('.tweets-section').appendChild(tweetElement);
+                    });
+                    fetchInitialLikes();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching initial tweets:', error);
+            });
+    }
+
+    function fetchMoreTweets() {
+        if (isFetchingTweets || noMoreTweets) return; // Prevent multiple fetches or if no more tweets
+        isFetchingTweets = true;
+        fetch('/get_more_tweets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                last_tweet_id: getLastTweetId()
+            })
+        })
+        .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch more tweets');
+                }
+                return response.json();
+            })
+        .then(data => {
+            if (data.length === 0) {
+                noMoreTweets = true;
+                document.querySelector('.no-more-tweets').style.display = 'block';
+            } else {
+                data.forEach(tweet => {
+                    const tweetElement = createTweetElement(tweet);
+                    document.querySelector('.tweets-section').appendChild(tweetElement);
+                });
+                fetchInitialLikes();
+            }
+            isFetchingTweets = false; // Reset the flag
+        })
+        .catch(error => {
+            console.error('Error fetching more tweets:', error);
+            isFetchingTweets = false; // Reset the flag in case of error
+        });
+    }
+
+    function fetchFollowingTweets() {
+        fetch('/get_following_tweets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: userId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch following tweets');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.length === 0) {
+                noMoreFollowedTweets = true;
+                document.querySelector('.no-more-tweets').style.display = 'block';
+            } else {
+                document.querySelector('.no-more-tweets').style.display = 'none';
+                document.querySelector('.tweets-section').innerHTML = ''; // Clear existing tweets
+                data.forEach(tweet => {
+                    const tweetElement = createTweetElement(tweet);
+                    document.querySelector('.tweets-section').appendChild(tweetElement);
+                });
+                fetchInitialLikes();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching following tweets:', error);
+        });
+    }
+    function fetchMoreFollowingTweets() {
+        if (isFetchingTweets || noMoreTweets) return; // Prevent multiple fetches or if no more tweets
+        isFetchingFollowedTweets = true;
+        fetch('/get_more_tweets_for_followed_users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                last_tweet_id: getLastTweetId()
+            })
+        })
+        .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch more tweets');
+                }
+                return response.json();
+            })
+        .then(data => {
+            if (data.length === 0) {
+                noMoreFollowedTweets = true;
+                document.querySelector('.no-more-tweets').style.display = 'block';
+            } else {
+                data.forEach(tweet => {
+                    const tweetElement = createTweetElement(tweet);
+                    document.querySelector('.tweets-section').appendChild(tweetElement);
+                });
+                fetchInitialLikes();
+            }
+            isFetchingFollowedTweets = false; // Reset the flag
+        })
+        .catch(error => {
+            console.error('Error fetching more tweets:', error);
+            isFetchingFollowedTweets = false; // Reset the flag in case of error
+        });
+    }
+    function getLastTweetId() {
+        const tweets = document.querySelectorAll('.tweet');
+        if (tweets.length > 0) {
+            return tweets[tweets.length - 1].dataset.tweetId; // Assuming each tweet element has a data-tweet-id attribute
+        }
+        return null;
+    }
+
+    window.addEventListener('scroll', () => {
+        if (isAtBottom()) {
+            if (document.getElementById('following-tab').classList.contains('active')) {
+                fetchMoreFollowingTweets();
+            } else {
+                fetchMoreTweets();
+            }
+        }
+    });
+
+    document.getElementById('for-you-tab').addEventListener('click', function(event) {
+        event.preventDefault();
+        document.querySelector('.tweets-section').innerHTML = '';
+        document.getElementById('following-tab').classList.remove('active');
+        document.getElementById('for-you-tab').classList.add('active');
+        noMoreTweets = false; // Reset the no more tweets flag
+        fetchInitialTweets();
+    });
+
+    document.getElementById('following-tab').addEventListener('click', function(event) {
+        event.preventDefault();
+        document.querySelector('.tweets-section').innerHTML = '';
+        document.getElementById('following-tab').classList.add('active');
+        document.getElementById('for-you-tab').classList.remove('active');
+        noMoreTweets = false; // Reset the no more tweets flag
+        fetchFollowingTweets();
+    });
+
+    function createTweetElement(tweet) {
+        const article = document.createElement('article');
+        article.classList.add('media', 'content-section');
+        
+        const divTweet = document.createElement('div');
+        divTweet.classList.add('tweet', 'card');
+        divTweet.dataset.tweetId = tweet.tweet_id;
+
+        const divContent = document.createElement('div');
+        divContent.classList.add('tweet-content', 'card-body');
+        
+        const row = document.createElement('div');
+        row.classList.add('row');
+        
+        const col1 = document.createElement('div');
+        col1.classList.add('col-md-2');
+        
+        const profilePicture = document.createElement('div');
+        profilePicture.classList.add('profile-picture', 'nav-profile', 'rounded-pill');
+        
+        const profileLink = document.createElement('a');
+        profileLink.classList.add('nav-item', 'nav-link');
+        profileLink.href = '/profile/' + tweet.username;
+        
+        const profileImg = document.createElement('img');
+        profileImg.classList.add('nav-profile', 'rounded-circle', 'img-fluid', 'profile-picture');
+        profileImg.alt = 'Profile Picture';
+
+        fetch(`/get_profile_pic/${tweet.user_id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.profile_pic) {
+                profileImg.src = `/static/uploads/profile_pics/${data.profile_pic}`;
+            } else {
+                profileImg.src = '/static/uploads/profile_pics/Random-profile-pic.jpg';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching profile picture:', error);
+            profileImg.src = '/static/uploads/profile_pics/Random-profile-pic.jpg';
+        });
+        
+        profileLink.appendChild(profileImg);
+        profilePicture.appendChild(profileLink);
+        col1.appendChild(profilePicture);
+        
+        const col2 = document.createElement('div');
+        col2.classList.add('col-md-10');
+        
+        const profileInfo = document.createElement('div');
+        profileInfo.classList.add('profile-info');
+        
+        const usernameLink = document.createElement('a');
+        usernameLink.classList.add('mr-2', 'profile-link');
+        usernameLink.href = '/profile/' + tweet.username;
+        usernameLink.textContent = tweet.username;
+        
+        const handle = document.createElement('span');
+        handle.classList.add('text-muted', 'handle');
+        handle.textContent = tweet.created_at;
+        
+        profileInfo.appendChild(usernameLink);
+        profileInfo.appendChild(handle);
+        
+        const tweetText = document.createElement('p');
+        tweetText.classList.add('tweet-text', 'card-text');
+        tweetText.textContent = tweet.content;
+        
+        const tweetActions = document.createElement('div');
+        tweetActions.classList.add('tweet-actions');
+        
+        const likeButton = document.createElement('button');
+        likeButton.classList.add('like-button', 'btn', 'btn-primary');
+        likeButton.innerHTML = '<i class="far fa-heart"></i>';
+        
+        const commentButton = document.createElement('button');
+        commentButton.classList.add('comment-button', 'btn', 'btn-primary');
+        commentButton.innerHTML = '<i class="fas fa-comment"></i>';
+        commentButton.addEventListener('click', function() {
+            // Redirect to the tweet page
+            window.location.href = '/comments/' + tweet.tweet_id;
+        });
+
+        const likeCounter = document.createElement('span');
+        likeCounter.classList.add('like-counter', 'right-margin-this');
+        likeCounter.id = `like-counter-${tweet.tweet_id}`;
+        likeCounter.textContent = '0'; // Initial like count
+        
+        tweetActions.appendChild(likeButton);
+        tweetActions.appendChild(likeCounter);
+        tweetActions.appendChild(commentButton);
+
+        
+        col2.appendChild(profileInfo);
+        col2.appendChild(tweetText);
+        col2.appendChild(tweetActions);
+        
+        row.appendChild(col1);
+        row.appendChild(col2);
+        
+        divContent.appendChild(row);
+        divTweet.appendChild(divContent);
+        article.appendChild(divTweet);
+        
+        return article;
+    }
+
+    function fetchInitialLikes() {
+        const tweetIds = Array.from(document.querySelectorAll('.tweet')).map(tweetElement => tweetElement.dataset.tweetId);
+        if (tweetIds.length === 0) return; // No tweets to fetch likes for
+
+        fetch('/get_likes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tweet_ids: tweetIds })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch likes');
+            }
+            return response.json();
+        })
+        .then(data => {
+            data.likes_data.forEach(likeData => {
+                const tweetId = likeData.tweet_id;
+                const likeCounter = document.querySelector(`#like-counter-${tweetId}`);
+                if (likeCounter) {
+                    likeCounter.textContent = likeData.likes;
+                }
+                const likeButton = document.querySelector(`.tweet[data-tweet-id="${tweetId}"] .like-button`);
+                if (likeButton) {
+                    if (likeData.is_liked) {
+                        likeButton.classList.add('liked');
+                        likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+                    } else {
+                        likeButton.classList.remove('liked');
+                        likeButton.innerHTML = '<i class="far fa-heart"></i>';
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching likes:', error);
+        });
+    }
+
+    function handleLikeButtonClick(tweetId, likeButton) {
+        // Check if the tweet is already liked or not
+        const isLiked = likeButton.classList.contains('liked');
+
+        // Send a POST request to add or remove the like
+        fetch('/add_remove_like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tweet_id: tweetId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to add/remove like');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update the appearance of the like button based on the response
+            if (data.message === 'Like added successfully') {
+                likeButton.classList.add('liked');
+                likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+            } else if (data.message === 'Like removed successfully') {
+                likeButton.classList.remove('liked');
+                likeButton.innerHTML = '<i class="far fa-heart"></i>';
+            }
+            fetchInitialLikes();
+        })
+        .catch(error => {
+            console.error('Error adding/removing like:', error);
+            alert('Error adding/removing like: ' + error.message);
+        });
+    }
+
+    document.querySelector('.tweets-section').addEventListener('click', function(event) {
+        if (event.target && event.target.closest('.like-button')) {
+            const likeButton = event.target.closest('.like-button');
+            const tweetElement = event.target.closest('.tweet');
+            const tweetId = tweetElement.dataset.tweetId;
+            console.log(`Tweet ID: ${tweetId}`); // Debugging log
+            handleLikeButtonClick(tweetId, likeButton);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchInitialTweets();
+        const commentButtons = document.querySelectorAll('.comment-button');
+        commentButtons.forEach(commentButton => {
+            commentButton.addEventListener('click', function() {
+                // Redirect to the tweet page
+                const tweetId = this.closest('.tweet').dataset.tweetId;
+                window.location.href = '/comments/' + tweetId;
+            });
+        });
+    });
+</script>
+{% endblock %}
