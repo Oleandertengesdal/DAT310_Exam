@@ -1,0 +1,275 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content-container">   
+    <div class="tweets-section">
+        <article class="media content-section">
+            <div class="tweet card" data-tweet-id="{{ tweet_id }}">
+                <div class="tweet-content card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="profile-picture nav-profile rounded-pill">
+                                <a class="nav-item nav-link" href="/profile/{{ tweet_username }}">
+                                    <img src="" class="rounded-circle profile-picture profile_pictu" alt="Profile Picture">
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-10">
+                            <div class="profile-info">
+                                <a class="tweet-username nav-item nav-link" href="/profile/{{ tweet_username }}"><strong>{{ tweet_username }}</strong></a>
+                                <span class="handle">{{ tweet_content }}</span>
+                            </div>
+                            <p class="tweet-text card-text">{{ tweet_content }}</p>
+                            <div class="tweet-actions">
+                                <button class="like-button btn btn-primary"><i class="far fa-heart"></i></button>
+                                <span class="like-counter right-margin-this" id="like-counter-{{ tweet_id }}">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </div>
+    
+    <!-- Write Comment Section -->
+    <div class="comment-write-section mt-3">
+        <div class="row">     
+            <form id="comment-form" class="col-md-12">
+                <div class="form-group comment-write-area">
+                    <textarea id="comment-content" class="form-control" placeholder="Write your comment..." rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Post Comment</button>
+            </form>
+        </div>    
+    </div>
+ 
+    <div class="comments-section mt-3">
+        <!-- Comments will be dynamically inserted here -->
+    </div>
+</div>
+<script>
+    var tweetId = "{{ tweet_id }}";
+    var userId = "{{ user_id }}";
+    var username = "{{ username }}";
+    var tweetUsername = "{{ tweet_username }}";
+
+    // Handle comment form submission
+    document.getElementById('comment-form').addEventListener('submit', function(event) {   
+        event.preventDefault(); // Prevent form submission
+    
+        // Get comment content from textarea
+        var commentContent = document.getElementById('comment-content').value;
+
+        // Send POST request to Flask server
+        fetch('/add_comment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: commentContent,
+                user_id: userId,
+                tweet_id: tweetId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to create comment');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Comment created successfully:', data);
+            // Create and append the new comment element
+            const newComment = createCommentElement({
+                comment_id: data.comment_id,
+                username: username,
+                timestamp: new Date(data.timestamp).toLocaleString(),
+                content: commentContent
+            });
+            document.querySelector('.comments-section').prepend(newComment);
+            document.getElementById('comment-content').value = ''; 
+        })
+        .catch(error => {
+            console.error('Error creating comment:', error);
+            alert('Error creating comment: ' + error.message);
+        });
+    });
+
+    function createCommentElement(comment) {
+        const divComment = document.createElement('div');
+        divComment.classList.add('comment', 'card', 'mt-2');
+        divComment.dataset.commentId = comment.comment_id;
+
+        const divContent = document.createElement('div');
+        divContent.classList.add('comment-content', 'card-body');
+        
+        const profileInfo = document.createElement('div');
+        profileInfo.classList.add('profile-info');
+        
+        const usernameLink = document.createElement('a');
+        usernameLink.classList.add('comment-username', 'nav-item', 'nav-link');
+        usernameLink.href = '/profile/' + comment.username;
+        usernameLink.innerHTML = `<strong>${comment.username}</strong>`;
+        
+        const handle = document.createElement('span');
+        handle.classList.add('handle');
+        handle.textContent = comment.timestamp;
+        
+        profileInfo.appendChild(usernameLink);
+        profileInfo.appendChild(handle);
+        
+        const commentText = document.createElement('p');
+        commentText.classList.add('comment-text', 'card-text');
+        commentText.textContent = comment.content;
+        
+        divContent.appendChild(profileInfo);
+        divContent.appendChild(commentText);
+        
+        divComment.appendChild(divContent);
+        
+        return divComment;
+    }
+
+    // Fetch initial comments
+    function fetchInitialComments() {
+        fetch(`/initial_comments/${tweetId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch initial comments');
+                }
+                return response.json();
+            })
+            .then(data => {
+                data.forEach(comment_data => {
+                    const commentElement = createCommentElement({
+                        comment_id: comment_data.comment_id,
+                        username: comment_data.username,
+                        timestamp: new Date(comment_data.timestamp).toLocaleString(),
+                        content: comment_data.content
+                    });
+                    document.querySelector('.comments-section').appendChild(commentElement);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching initial comments:', error);
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchInitialComments();
+    });
+
+    // Handle like button click event
+    document.querySelector('.tweets-section').addEventListener('click', function(event) {
+        if (event.target && event.target.closest('.like-button')) {
+            const likeButton = event.target.closest('.like-button');
+            const tweetElement = likeButton.closest('.tweet');
+            const tweetId = tweetElement.dataset.tweetId;
+            console.log(`Tweet ID: ${tweetId}`); // Debugging log
+            handleLikeButtonClick(tweetId, likeButton);
+        }
+    });
+
+    function handleLikeButtonClick(tweetId, likeButton) {
+        const isLiked = likeButton.classList.contains('liked');
+
+        fetch('/add_remove_like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tweet_id: tweetId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to add/remove like');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.message === 'Like added successfully') {
+                likeButton.classList.add('liked');
+                likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+            } else if (data.message === 'Like removed successfully') {
+                likeButton.classList.remove('liked');
+                likeButton.innerHTML = '<i class="far fa-heart"></i>';
+            }
+            fetchInitialLikes();
+        })
+        .catch(error => {
+            console.error('Error adding/removing like:', error);
+            alert('Error adding/removing like: ' + error.message);
+        });
+    }
+
+    function fetchInitialLikes() {
+        const tweetIds = Array.from(document.querySelectorAll('.tweet')).map(tweetElement => tweetElement.dataset.tweetId);
+        if (tweetIds.length === 0) return; // No tweets to fetch likes for
+
+        fetch('/get_likes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tweet_ids: tweetIds })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch likes');
+            }
+            return response.json();
+        })
+        .then(data => {
+            data.likes_data.forEach(likeData => {
+                const tweetId = likeData.tweet_id;
+                const likeCounter = document.querySelector(`#like-counter-${tweetId}`);
+                if (likeCounter) {
+                    likeCounter.textContent = likeData.likes;
+                }
+                const likeButton = document.querySelector(`.tweet[data-tweet-id="${tweetId}"] .like-button`);
+                if (likeButton) {
+                    if (likeData.is_liked) {
+                        likeButton.classList.add('liked');
+                        likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+                    } else {
+                        likeButton.classList.remove('liked');
+                        likeButton.innerHTML = '<i class="far fa-heart"></i>';
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching likes:', error);
+        });
+    }
+
+    function get_profile_picture(username) {
+        fetch(`/get_profile_pic_comments/${username}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(async response => {
+            const data = await response.json();
+            console.log(data);
+                if (data.profile_pictu) {
+                    document.querySelector('.profile_pictu').src = `/static/uploads/profile_pics/${data.profile_pictu}`;
+            } else {
+                document.querySelector('.profile_pictu').src = '/static/images/Random-profile-pic.jpg';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.querySelector('.profile_pictu').src = '/static/images/Random-profile-pic.jpg';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchInitialLikes();
+        get_profile_picture(tweetUsername);
+    });
+</script>
+{% endblock %}
