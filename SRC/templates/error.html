@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Error: {% if error %}{{ error.code }}{% else %}Unknown{% endif %}</h2>
+                    <p class="card-text">Message: {% if error %}{{ error_message }}{% else %}An unexpected error occurred{% endif %}</p>
+                    <a href="{{ url_for("index1") }}" class="btn btn-primary rounded-pill mr-2">Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+         
+{% endblock %}
