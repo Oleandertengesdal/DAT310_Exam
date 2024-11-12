@@ -1,0 +1,257 @@
+body {
+  background: #15202b;            /* Twitter-like dark background */
+  color: #ffffff;                 /* White text color */
+  margin-top: 5rem;
+  padding-top: 50px;                /* Add padding top to body */
+}
+
+.main-content
+h1, h2, h3, h4, h5, h6 {
+  color: #ffffff;                 /* White text color for headings */
+}
+
+.bg-steel {
+  background-color: #1da1f2;      /* Twitter-like blue color */
+}
+
+.site-header .navbar-nav .nav-link {
+  color: #ffffff;                 /* White text color for navbar links */
+}
+
+.site-header .navbar-nav .nav-link:hover {
+  color: #c9d1d9;                 /* Light gray hover color for navbar links */
+}
+
+.site-header .navbar-nav .nav-link.active {
+  font-weight: 500;
+}
+
+.content-section {
+  background-color: #192734;      /* Twitter-like dark background for content sections */
+  color: #ffffff;                 /* White text color for content */
+  padding: 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.article-title {
+  color: #ffffff;                 /* White text color for article titles */
+}
+
+a.article-title:hover {
+  color: #1da1f2;                 /* Twitter-like blue color on hover for article titles */
+  text-decoration: none;
+}
+
+.article-content {
+  color: #ffffff;                 /* White text color for article content */
+  white-space: pre-line;
+}
+
+.article-img {
+  height: 65px;
+  width: 65px;
+  margin-right: 16px;
+}
+
+.article-metadata {
+  padding-bottom: 1px;
+  margin-bottom: 4px;
+  border-bottom:  1px solid #38444d;/* Twitter-like border color for article metadata */
+}
+
+.article-metadata a:hover {
+  color: #ffffff;                 /* White text color on hover for article metadata links */
+  text-decoration: none;
+}
+
+.account-img {
+  height: 125px;
+  width: 125px;
+  margin-right: 20px;
+  margin-bottom: 16px;
+}
+
+.account-heading {
+  font-size: 2.5rem;
+}
+
+.container-flex {
+  display: flex;
+  justify-content: space-between;
+}
+
+.sidebar {
+  width: 20%;
+  background-color: #343a40;
+  color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;              /* Add some border radius */
+}
+
+.sidebar, .sidebar-right {
+  position: fixed;
+  height: 100%;
+  overflow-y: auto;
+}
+
+html, body {
+  height: 100%;
+}
+
+.sidebar .nav-link {
+  margin-bottom: 10px;              /* Add space between each nav link */
+  border: 1px solid transparent;    /* Add border to each nav link */
+  border-radius: 5px;               /* Add some border radius to each nav link */
+  transition: all 0.3s;             /* Add transition for smooth hover effect */
+}
+
+.sidebar .nav-link-container:hover {
+  background-color: #495057;      /* Change background color on hover */
+  border-color: #adb5bd;          /* Change border color on hover */
+}
+
+.nav-link-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;      /* Align items from the start */
+  margin-bottom: 10px;              /* Add some space between each link */
+  border: 1px solid transparent;    /* Add border to each nav link */
+  border-radius: 5px;               /* Add some border radius to each nav link */
+  transition: all 0.3s;             /* Add transition for smooth hover effect */
+}
+
+.nav-icon {
+  margin-right: 10px;               /* Add space between icon and link */
+}
+
+.main-content {
+  width: 75%;
+  padding: 20px;
+}
+
+/* Add hover effect to profile link */
+.nav-profile:hover {
+  background-color: #495057;
+}
+
+/* Style profile picture */
+.profile-picture { 
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover; 
+  margin-right: 8px;
+}
+
+.profile-pict {
+  width: 32px;
+  height: 32px;
+}
+
+.profile-pic {
+  
+  border-radius: 50%;
+  object-fit: cover; 
+  margin-right: 8px;
+}
+
+/* Style login and sign up buttons */
+.btn {
+  border-radius: 20px; /* Rounded corners */
+}
+
+.right-margin-this {
+  margin-right: 10px;
+}
+.color-red {
+  color: #ff0000; /* Red text color */
+}
+
+.btn:hover {
+  background-color: #495057;
+}
+.tweet {
+  border: 1px solid #ccc;
+  margin-bottom: 20px;
+}
+
+.profile-picture {
+  margin-right: 10px;
+}
+
+.handle {
+  color: #555;
+}
+
+.tweet-text {
+  margin-bottom: 10px;
+}
+
+.tweet-username:hover {
+  text-decoration: underline;
+}
+
+.tweet-actions button {
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.profile-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none; 
+  color: inherit; 
+}
+
+.bio-box {
+  padding: 10px;
+  border: 1px solid #ccc; /* Angi en ramme rundt boksen */
+  border-radius: 5px;   /* Runde hjørner */
+  background-color: #f9f9f9;
+  color: black;
+}
+
+/* Media queries for responsiveness */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .navbar .btn {
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-icon {
+
+    display: none;
+  }
+
+  .main-content {
+    width: 100%;
+    overflow-y: auto;
+    height: calc(100vh - 230px);
+  }
+
+  .post-section {
+    padding-left: 20px;
+  }
+
+  .nav-tabs {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .profile-img {
+    display: none;
+  }
+
+  .sidebar-right {
+    display: none;
+  }
+}
