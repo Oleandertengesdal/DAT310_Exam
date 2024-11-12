@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">You are not logged in </h2>
+                    <a href="{{ url_for('login') }}" class="btn btn-primary rounded-pill mr-2">Login</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-primary rounded-pill">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+         
+{% endblock %}
