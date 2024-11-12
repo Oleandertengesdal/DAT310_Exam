@@ -1,0 +1,6 @@
+Flask==2.0.3
+Werkzeug==2.0.3
+SQLlite3==0.1.0
+os==0.1.0
+datetime==4.3
+json==2.0.9
