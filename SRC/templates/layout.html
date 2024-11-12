@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    {% if title %}
+    <title>{{ title }}</title>
+    {% else %}
+    <title>Exam_108271</title>
+    {% endif %}
+    <link rel="stylesheet" href="https://bootswatch.com/5/darkly/bootstrap.min.css">
+    <script src="https://kit.fontawesome.com/a4052f9575.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header class="site-header">
+        <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top">
+            <div class="container">
+                <a class="navbar-brand mr-4" href="/">Exam_108271</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggle" aria-controls="navbarToggle" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarToggle">
+                    <div class="navbar-nav ms-auto">
+                        {% if username == 'null' %}
+                            <a href="{{ url_for('login') }}" class="btn btn-primary rounded-pill mr-2">Login</a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary rounded-pill">Sign Up</a>
+                        {% elif username %}
+                            <a href="/profile/{{ username }}" class="nav-item nav-link nav-profile rounded-pill">
+                                <img src="" class="rounded-circle profile-pict" alt="Profile Picture">
+                                {{ username }}
+                                <input type="hidden" id="user_id" name="user_id" value="{{ user_id }}">
+                            </a>
+                            <a href="{{ url_for('logout') }}" class="btn btn-primary rounded-pill mr-2">Logout</a>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="btn btn-primary rounded-pill mr-2">Login</a>
+                            <a href="{{ url_for('register') }}" class="btn btn-primary rounded-pill">Sign Up</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-3 d-none d-md-block">
+                <div class="sidebar bg-dark text-white p-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <div class="nav-link-container d-flex align-items-center">
+                                <i class="fa-solid fa-house fa-lg nav-icon nav-item"></i>
+                                <a class="nav-link" href="{{ url_for('index1') }}">Home</a>
+                            </div>
+                        </li>
+                        <li class="nav-item">
+                            <div class="nav-link-container d-flex align-items-center">
+                                <i class="fa-solid fa-user fa-lg nav-icon nav-item"></i>
+                                <a class="nav-link" href="/profile/{{ username }}">Account</a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-9 col-sm-12">
+                <div class="container main-content">
+                    {% block content %}
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="bg-dark text-white text-center py-3 fixed-bottom">
+        <p>&copy; 2024 - Exam_108271</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+</body>
+<script>
+var username = {{ username|tojson|default('null') }};
+if (username === 'null' || username === 'None' || username === 'undefined' || username === '') {
+    console.log("No user logged in");
+} else {
+    function get_profilepicture_for_user_layout() {
+        fetch(`/get_profile_pic_layout/${username}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(async response => {
+            const jsonResponse = await response.json();
+            if (jsonResponse.profile_pic) {
+                document.querySelector('.profile-pict').src = `/static/uploads/profile_pics/${jsonResponse.profile_pic}`;
+            } else {
+                document.querySelector('.profile-pict').src = '/static/images/Random-profile-pic.jpg';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.querySelector('.profile-pict').src = '/static/images/Random-profile-pic.jpg';
+        });
+    }
+    document.addEventListener('DOMContentLoaded', get_profilepicture_for_user_layout);
+}
+
+function search(event) {
+    event.preventDefault();
+    const search = document.querySelector('#search-control').value; 
+    console.log(search);
+    fetch('/search', { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ search: search })
+    })
+    .then(async response => {
+        const tweets = await response.json();
+        const tweetsSection = document.querySelector('.section-search-tweet');
+        tweetsSection.innerHTML = '';
+        tweets.forEach(tweet => {
+            const tweetElement = createTweetElementSearch(tweet);
+            tweetsSection.appendChild(tweetElement);
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function createTweetElementSearch(tweet) {
+    const article = document.createElement('article');
+    article.classList.add('media', 'content-section');
+
+    const divTweet = document.createElement('div');
+    divTweet.classList.add('tweet', 'card');
+    divTweet.dataset.tweetId = tweet.tweet_id;
+
+    const divContent = document.createElement('div');
+    divContent.classList.add('tweet-content', 'card-body');
+
+    const row = document.createElement('div');
+    row.classList.add('row');
+
+    const col2 = document.createElement('div');
+    col2.classList.add('col-md-12');
+
+    const profileInfo = document.createElement('div');
+    profileInfo.classList.add('profile-info');
+
+    const usernameLink = document.createElement('a');
+    usernameLink.classList.add('mr-2', 'profile-link');
+    usernameLink.href = '/profile/' + tweet.username;
+    usernameLink.textContent = tweet.username;
+
+    const tweetText = document.createElement('p');
+    tweetText.classList.add('tweet-text', 'card-text');
+    tweetText.textContent = tweet.content;
+
+    const tweetActions = document.createElement('div');
+    tweetActions.classList.add('tweet-actions');
+
+    const likeButton = document.createElement('button');
+    likeButton.classList.add('like-button', 'btn', 'btn-primary');
+    likeButton.innerHTML = '<i class="far fa-heart"></i>';
+
+    const likeCounter = document.createElement('span');
+    likeCounter.classList.add('like-counter', 'right-margin-this');
+    likeCounter.id = 'like-counter-' + tweet.tweet_id;
+    likeCounter.textContent = '0';
+
+    const commentButton = document.createElement('button');
+    commentButton.classList.add('comment-button', 'btn', 'btn-primary');
+    commentButton.innerHTML = '<i class="fas fa-comment"></i>';
+    commentButton.onclick = () => window.location.href = '/comments/' + tweet.tweet_id;
+
+    profileInfo.appendChild(usernameLink);
+    col2.appendChild(profileInfo);
+    col2.appendChild(tweetText);
+    tweetActions.appendChild(likeButton);
+    tweetActions.appendChild(likeCounter);
+    tweetActions.appendChild(commentButton);
+    col2.appendChild(tweetActions);
+    row.appendChild(col2);
+    divContent.appendChild(row);
+    divTweet.appendChild(divContent);
+    article.appendChild(divTweet);
+
+    return article;
+}
+</script>
+</html>
