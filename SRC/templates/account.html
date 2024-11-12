@@ -1,0 +1,501 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <!-- Profile Header -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h2>{{ pusername }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <img src="" class="profile-pic img-fluid rounded-circle" alt="Profile Picture">
+                        </div>
+                        <div class="col-md-9">
+                            <!-- User Details -->
+                            <ul class="list-unstyled">
+                                <li><strong>Username:</strong> {{ pusername }}</li>
+                                <li><strong>Email:</strong> {{ email }}</li>
+                                <li><strong>Joined:</strong> {{ created_at }}</li>
+                                <li><strong>Followers:</strong> <span id="followers-count"> {{ followers_count }}</span> </li>
+                                <li><strong>Following:</strong> {{ following_count }}</li>
+                                <li><strong>Bio:</strong> <div class="bio-box" id="bio-text">{{ bio }}</div></li>
+                                <input type="hidden" id="user-id" value="{{ user_id }}">
+                            </ul>
+                            {% if is_own_profile %}
+                            <div id="bio-editor" style="display: none;">
+                                <textarea class="form-control" id="bio-input">{{ bio }}</textarea>
+                                <button class="btn btn-primary mt-2" id="save-bio-btn">Save</button>
+                            </div>
+                            <button class="btn btn-primary" id="edit-bio-btn">Edit Bio</button>
+                            <form id="profile-pic-form" onsubmit="return update_profile_picture()" enctype="multipart/form-data">
+                                <div class="form-group mt-3">
+                                    <label for="profile_picture">Change Profile Picture</label>
+                                    <input type="file" class="form-control-file" id="profile_picture" name="file" onchange="previewImage()">
+                                    <input type="hidden" name="user_id" value="{{ user_id }}">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Upload</button>
+                            </form>
+                            {% else %}
+                            <button class="btn btn-primary" id="follow-btn">Follow</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tweets-section mt-3">
+        <!-- Her kommer Tweetsene -->
+        
+    </div>
+
+    <script>
+
+    var isFetchingTweets = false; // Flag to prevent multiple fetches
+    var noMoreTweets = false; // Flag to indicate no more tweets
+        
+document.addEventListener('DOMContentLoaded', function() {
+    const editBioBtn = document.getElementById('edit-bio-btn');
+    const saveBioBtn = document.getElementById('save-bio-btn');
+    const bioText = document.getElementById('bio-text');
+    const bioEditor = document.getElementById('bio-editor');
+    const bioInput = document.getElementById('bio-input');
+    const followBtn = document.getElementById('follow-btn');
+    const userId = document.getElementById('user-id').value;
+    const currentUserId = {{ current_user_id }};
+
+    console.log('Current User ID:', currentUserId);
+    console.log('Profile User ID:', userId);
+
+    get_profile_picture_for_user();
+
+    if (followBtn) {
+        checkFollowStatus();
+        followBtn.addEventListener('click', function() {
+            const action = followBtn.classList.contains('following') ? 'unfollow' : 'follow';
+            fetch(`/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ follower_id: currentUserId, followed_id: userId })
+            })
+            .then(async response => {
+                const jsonResponse = await response.json();
+                if (jsonResponse.message === 'success') {
+                    toggleFollowButton(action === 'follow');
+                    updateFollowCounts(action);
+                } else {
+                    console.error('Error:', jsonResponse.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    }
+
+    // Function to check the follow status
+    function checkFollowStatus() {
+        fetch('/is_following', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ follower_id: currentUserId, followed_id: userId })
+        })
+        .then(async response => {
+            const jsonResponse = await response.json();
+            if (jsonResponse.is_following) {
+                toggleFollowButton(true);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    // Function to toggle the follow button
+    function toggleFollowButton(isFollowing) {
+        if (isFollowing) {
+            followBtn.textContent = 'Unfollow';
+            followBtn.classList.add('following');
+            followBtn.classList.remove('btn-primary');
+            followBtn.classList.add('btn-secondary');
+        } else {
+            followBtn.textContent = 'Follow';
+            followBtn.classList.remove('following');
+            followBtn.classList.remove('btn-secondary');
+            followBtn.classList.add('btn-primary');
+        }
+    }
+
+    // Function to update the follow counts
+    function updateFollowCounts(action) {
+        const followersCountElem = document.getElementById('followers-count');
+        const currentCount = parseInt(followersCountElem.textContent.trim());
+        followersCountElem.textContent = `${action === 'follow' ? currentCount + 1 : currentCount - 1}`;
+    }
+
+    // Edit the bio
+    editBioBtn.addEventListener('click', function() {
+        editBioBtn.style.display = 'none';
+        bioText.style.display = 'none';
+        bioEditor.style.display = 'block';
+        saveBioBtn.style.display = 'block';
+    });
+
+    // Save the bio
+    saveBioBtn.addEventListener('click', function() {
+        const newBio = bioInput.value;
+        bioText.textContent = newBio;
+        bioEditor.style.display = 'none';
+        saveBioBtn.style.display = 'none';
+        editBioBtn.style.display = 'block';
+
+        fetch('/update_bio', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, bio: newBio })
+        })
+        .then(async response => {
+            const jsonResponse = await response.json();
+            const updatedBio = jsonResponse.bio;
+            bioText.style.display = 'block';
+            document.getElementById('bio-text').textContent = updatedBio;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    get_initial_tweets_account();
+    fetchInitialLikes();
+});
+
+    // Function to get the initial tweets for the user
+    function get_initial_tweets_account(){
+        const userId = document.getElementById('user-id').value;
+        fetch('/get_tweets_account', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id:userId })
+        })
+        .then(async response => {
+            const tweets = await response.json();
+            const tweetsSection = document.querySelector('.tweets-section');
+            tweetsSection.innerHTML = '';
+            tweets.forEach(tweet => {
+                const tweetElement = createTweetElement(tweet);
+                tweetsSection.appendChild(tweetElement);
+            });
+            fetchInitialLikes();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+function update_profile_picture() {
+    const form = document.getElementById('profile-pic-form');
+    const formData = new FormData(form);
+
+    fetch(`/upload_profile_pic`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(async response => {
+        const jsonResponse = await response.json();
+        if (jsonResponse.profile_pic) {
+            document.querySelector('.profile-pic').src = `/static/uploads/profile_pics/${jsonResponse.profile_pic}`;
+        } else {
+            document.querySelector('.profile-pic').src = '/static/images/Random-profile-pic.jpg';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.querySelector('.profile-pic').src = '/static/images/Random-profile-pic.jpg';
+    });
+
+    location.reload();
+    // Prevent the form from submitting the default way
+    return false;
+}
+
+function get_profile_picture_for_user() {
+    const userId = document.getElementById('user-id').value;
+    fetch(`/get_profile_pic/${userId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(async response => {
+        const jsonResponse = await response.json();
+        if (jsonResponse.profile_pic) {
+            document.querySelector('.profile-pic').src = `/static/uploads/profile_pics/${jsonResponse.profile_pic}`;
+        } else {
+            document.querySelector('.profile-pic').src = '/static/images/Random-profile-pic.jpg';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.querySelector('.profile-pic').src = '/static/images/Random-profile-pic.jpg';
+    });
+}
+    // Function to get more tweets for the user
+    function get_more_tweets_for_user(){
+        const userId = document.getElementById('user-id').value;
+        const tweetIds = Array.from(document.querySelectorAll('.tweet')).map(tweetElement => tweetElement.dataset.tweetId);
+        fetch('/get_more_tweets_for_user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id:userId, tweet_ids:tweetIds })
+        })
+        .then(async response => {
+            const tweets = await response.json();
+            const tweetsSection = document.querySelector('.tweets-section');
+            tweets.forEach(tweet => {
+                const tweetElement = createTweetElement(tweet);
+                tweetsSection.appendChild(tweetElement);
+            });
+            fetchInitialLikes();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    function isAtBottom() {
+        return window.innerHeight + window.scrollY >= document.body.offsetHeight;
+    }
+
+    window.addEventListener('scroll', function() {
+        if (isAtBottom()) {
+            get_more_tweets_for_user();
+        }
+    });
+
+    // Function to fetch the initial likes for the tweets
+function fetchInitialLikes() {
+    const tweetIds = Array.from(document.querySelectorAll('.tweet')).map(tweetElement => tweetElement.dataset.tweetId);
+    if (tweetIds.length === 0) return; // No tweets to fetch likes for
+
+    fetch('/get_likes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ tweet_ids: tweetIds })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch likes');
+        }
+        return response.json();
+    })
+    .then(data => {
+        data.likes_data.forEach(likeData => {
+            const tweetId = likeData.tweet_id;
+            const likeCounter = document.querySelector(`#like-counter-${tweetId}`);
+            if (likeCounter) {
+                likeCounter.textContent = likeData.likes;
+            }
+            const likeButton = document.querySelector(`.tweet[data-tweet-id="${tweetId}"] .like-button`);
+            if (likeButton) {
+                if (likeData.is_liked) {
+                    likeButton.classList.add('liked');
+                    likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+                } else {
+                    likeButton.classList.remove('liked');
+                    likeButton.innerHTML = '<i class="far fa-heart"></i>';
+                }
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error fetching likes:', error);
+    });
+}
+    document.addEventListener('DOMContentLoaded', function() {
+    get_initial_tweets_account();
+    fetchInitialLikes();
+});
+
+// Function to preview the image before uploading
+function previewImage() {
+    const fileInput = document.getElementById('profile_picture').files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('profile-img').src = reader.result;
+    };
+    if (fileInput) {
+        reader.readAsDataURL(fileInput);
+    } else {
+        document.getElementById('profile-img').src = '/static/images/Random-profile-pic.jpg';
+    }
+}
+
+
+// Function to handle the like button click
+function handleLikeButtonClick(tweetId, likeButton) {
+    const isLiked = likeButton.classList.contains('liked');
+
+    fetch('/add_remove_like', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            tweet_id: tweetId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to add/remove like');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update the appearance of the like button based on the response
+        if (data.message === 'Like added successfully') {
+            likeButton.classList.add('liked');
+            likeButton.innerHTML = '<i class="fas fa-heart color-red"></i>';
+        } else if (data.message === 'Like removed successfully') {
+            likeButton.classList.remove('liked');
+            likeButton.innerHTML = '<i class="far fa-heart"></i>';
+        }
+        fetchInitialLikes();
+    })
+    .catch(error => {
+        console.error('Error adding/removing like:', error);
+        alert('Error adding/removing like: ' + error.message);
+    });
+}
+document.querySelector('.tweets-section').addEventListener('click', function(event) {
+    if (event.target && event.target.matches('.like-button')) {
+        const tweetElement  =event.target.closest('.tweet');
+        const tweetId = tweetElement.dataset.tweetId;
+        console.log(`Tweet ID: ${tweetId}`); // Debugging log
+        handleLikeButtonClick(tweetId, event.target);
+    }
+});
+
+function createTweetElement(tweet) {
+    const article = document.createElement('article');
+    article.classList.add('media', 'content-section');
+    
+    const divTweet = document.createElement('div');
+    divTweet.classList.add('tweet', 'card');
+    divTweet.dataset.tweetId = tweet.tweet_id;
+
+    const divContent = document.createElement('div');
+    divContent.classList.add('tweet-content', 'card-body');
+    
+    const row = document.createElement('div');
+    row.classList.add('row');
+    
+    const col1 = document.createElement('div');
+    col1.classList.add('col-md-2');
+    
+    const profilePicture = document.createElement('div');
+    profilePicture.classList.add('profile-picture', 'nav-profile', 'rounded-pill');
+    
+    const profileLink = document.createElement('a');
+    profileLink.classList.add('nav-item', 'nav-link');
+    profileLink.href = '/profile/' + tweet.username;
+    
+    const profileImg = document.createElement('img');
+    profileImg.classList.add('rounded-circle', 'profile-picture');
+    profileImg.alt = 'Profile Picture';
+    
+    fetch(`/get_profile_pic/${tweet.user_id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.profile_pic) {
+                profileImg.src = `/static/uploads/profile_pics/${data.profile_pic}`;
+            } else {
+                profileImg.src = '/static/uploads/profile_pics/Random-profile-pic.jpg';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching profile picture:', error);
+            profileImg.src = '/static/uploads/profile_pics/Random-profile-pic.jpg';
+        });
+
+    profileLink.appendChild(profileImg);
+    profilePicture.appendChild(profileLink);
+    col1.appendChild(profilePicture);
+    
+    const col2 = document.createElement('div');
+    col2.classList.add('col-md-10');
+    
+    const profileInfo = document.createElement('div');
+    profileInfo.classList.add('profile-info');
+    
+    const usernameLink = document.createElement('a');
+    usernameLink.classList.add('tweet-username', 'nav-item', 'nav-link');
+    usernameLink.href = '/profile/' + tweet.username;
+    usernameLink.innerHTML = `<strong>${tweet.username}</strong>`;
+    
+    const handle = document.createElement('span');
+    handle.classList.add('handle');
+    handle.textContent = tweet.created_at;
+    
+    profileInfo.appendChild(usernameLink);
+    profileInfo.appendChild(handle);
+    
+    const tweetText = document.createElement('p');
+    tweetText.classList.add('tweet-text', 'card-text');
+    tweetText.textContent = tweet.content;
+    
+    const tweetActions = document.createElement('div');
+    tweetActions.classList.add('tweet-actions');
+    
+    const likeButton = document.createElement('button');
+    likeButton.classList.add('like-button', 'btn', 'btn-primary');
+    likeButton.innerHTML = '<i class="far fa-heart"></i>';
+    
+    const commentButton = document.createElement('button');
+        commentButton.classList.add('comment-button', 'btn', 'btn-primary');
+        commentButton.innerHTML = '<i class="fas fa-comment"></i>';
+        commentButton.addEventListener('click', function() {
+            // Redirect to the tweet page
+            window.location.href = '/comments/' + tweet.tweet_id;
+        });
+
+    const likeCounter = document.createElement('span');
+    likeCounter.classList.add('like-counter', 'right-margin-this');
+    likeCounter.id = `like-counter-${tweet.tweet_id}`;
+    likeCounter.textContent = '0'; 
+    
+    tweetActions.appendChild(likeButton);
+    tweetActions.appendChild(likeCounter);
+    tweetActions.appendChild(commentButton);
+
+    
+    col2.appendChild(profileInfo);
+    col2.appendChild(tweetText);
+    col2.appendChild(tweetActions);
+    
+    row.appendChild(col1);
+    row.appendChild(col2);
+    
+    divContent.appendChild(row);
+    divTweet.appendChild(divContent);
+    article.appendChild(divTweet);
+    
+    return article;
+}
+    </script>
+{% endblock %}
